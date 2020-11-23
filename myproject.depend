@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1606146671 source:/home/alexmak/AlexShell/myproject/main.cpp
+	<iostream>
+	<vector>
+	<string>
+
