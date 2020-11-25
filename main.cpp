@@ -15,17 +15,14 @@
 using namespace std;
 
 
-vector <string> internal_commands {"cd","pwd","time"};
-
-
-// встроенные функции
+// внутренние команды
 void cd ();
 void pwd ();
 void time ();
 
 
-// мои будущие функции
-void cd (vector <string> arg = {"cd", "nothing or name of the directory"}) {
+//arg = {"cd", "nothing or name of the directory"}
+void cd (vector <string> arg) {
     if (arg.size() == 1) {
         arg.push_back("home");
     }
@@ -38,7 +35,8 @@ void pwd () {
 }
 
 
-void time (vector <string> parsed_line = {"time", "cmd", "other args for cmd"}) {
+// parsed_line = {"time", "cmd", "other args for cmd"}
+void time (vector <string> parsed_line) {
     if (parsed_line.size() < 3) {
         perror("слишком мало аргументов для time");
     }
@@ -50,66 +48,30 @@ void time (vector <string> parsed_line = {"time", "cmd", "other args for cmd"}) 
 }
 
 
-void execute_internal_commands (vector <string> parsed_line) {
-    if (parsed_line[0] == "cd") {
-        cd(parsed_line);
-    } else if (parsed_line[0] == "pwd") {
-        pwd();
-    } else if (parsed_line[0] == "time") {
-        time(parsed_line);
-    } else {
-        // не внутреняя команда
+char* convert_string_to_char_pointer (string input) {
+    char* output = (char*) malloc(input.size() + 1);
+    for (size_t i = 0; i < input.size(); i++) {
+        output[i] = input[i];
     }
-}
-
-
-struct Type_for_Execvp {
-public :
-    Type_for_Execvp() {cmd = NULL; *args = NULL;};
-    Type_for_Execvp(vector <string> parsed_line);
-    ~Type_for_Execvp() {delete [] cmd; ...};
-private :
-    char* cmd;
-    char* args[];
-};
-
-
-Type_for_Execvp :: Type_for_Execvp (vector <string> parsed_line) {
-
-    assert(parsed_line.size() > 0);
-
-    cmd = new char [parsed_line[0].size()];
-    args = new char* [parsed_line.size()];
-    for (size_t i = 0; i < parsed_line.size(); i++) {
-        args[i] = new char [parsed_line[i].size()];
-        // для NULL
-        if (i == parsed_line.size() - 1) {
-            args[i] = new char (1);
-            args[i][parsed_line[i].size()] = NULL;
-        }
-    }
-
-    for (size_t i = 0; i < parsed_line[0].size(); i++) {
-        cmd[i] = parsed_line[0][i];
-    }
-    for (size_t i = 0; i < parsed_line.size(); i++) {
-        for (size_t j = 0; j < parsed_line[i].size(); j++) {
-            args[i][j] = parsed_line[i][j];
-        }
-    }
+    output[input.size()] = NULL;
+    return output;
 }
 
 
 void execute_external_commands (vector <string> parsed_line) {
     pid_t ret_pid, wpid;
     int status;
-    char** parsed_line_double_pointer = convert_vs_to_cdp (parsed_line);
+    char* cmd = convert_string_to_char_pointer (parsed_line[0]);
+    char** argv = (char**) calloc (parsed_line.size() + 1, sizeof(char*));
+    for (size_t i = 0; i < parsed_line.size(); i++) {
+        argv[i] = convert_string_to_char_pointer(parsed_line[i]);
+    }
 
     ret_pid = fork();
 
     if (ret_pid == 0) {
         // дочерний процесс
-        if (execvp(parsed_line_double_pointer[0], parsed_line_double_pointer) == -1) {
+        if (execvp(cmd, argv) == -1) {
             // запускаем другой процесс с переданными аргументами и делаем проверку одновременно
             perror("not correct execvp");
         }
@@ -123,6 +85,13 @@ void execute_external_commands (vector <string> parsed_line) {
     } else {
         perror("ret_pid < 0");
     }
+
+    // чистка
+    free (cmd);
+    for (size_t i = 0; i < parsed_line.size() + 1; i++) {
+        free(argv[i]);
+    }
+    free (argv);
 }
 
 
@@ -130,45 +99,30 @@ void execute_commands (vector <string> parsed_line) {
 
     // если была введена пустая команда
     if (parsed_line.size() == 0) {
-        perror ("была введена пустая команда");
+        cout << "была введена пустая команда" << endl;
+        return ;
     }
 
-    // если у нас внутренняя команда
-    if (find(internal_commands.begin(), internal_commands.end(), parsed_line[0]) != internal_commands.end()) {
-        execute_internal_commands(parsed_line);
-    }
-
-    // если у нас внешняя команда
-    else {
+    // выполняем
+    if (parsed_line[0] == "cd") {
+        cd(parsed_line);
+    } else if (parsed_line[0] == "pwd") {
+        pwd();
+    } else if (parsed_line[0] == "time") {
+        time(parsed_line);
+    } else {
         execute_external_commands(parsed_line);
     }
 }
 
 
-vector <string> define_commands (string a) {
-    // разделяется пробелами и знаками табуляции
-    istringstream input_stream(a);
-    vector <string> tokens {istream_iterator<string>{input_stream}, istream_iterator<string>{},{    }};
-    return tokens;
-}
-
-
-string read_commands (void) {
+vector <string> read_and_define_commands () {
     string line;
     getline(cin, line);
-    return line;
-}
-
-
-void loop_for_commands (void) {
-    while (true) {
-        // чтение
-        string line = read_commands();
-        // парсинг
-        vector <string> parsed_line = define_commands(line);
-        // исполнение
-        execute_commands(parsed_line);
-    }
+    // разделяется пробелами и знаками табуляции
+    istringstream input_stream (line);
+    vector <string> tokens {istream_iterator<string>{input_stream}, istream_iterator<string>{},{    }};
+    return tokens;
 }
 
 
@@ -177,7 +131,12 @@ int main()
 {
 
     // интерпретация (считывание команд, их определение и исполнение)
-    loop_for_commands();
+    while (true) {
+        // чтение и парсинг
+        vector <string> parsed_line = read_and_define_commands();
+        // исполнение
+        execute_commands(parsed_line);
+    }
 
     return 0;
 }
