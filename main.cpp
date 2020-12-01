@@ -1,37 +1,57 @@
 #include <iostream>
-#include <fstream>
 #include <vector>
-#include <cstring>
 #include <string>
-#include <algorithm>
 #include <sstream>
 #include <iterator>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <assert.h>
+#include <pwd.h>
+#include <signal.h>
 #include <stdlib.h>
-#include <map>
+#include <thread>
 using namespace std;
+
+
+char* home_dir = getpwuid(getuid())->pw_dir;
 
 
 // внутренние команды
 void cd ();
-void pwd ();
+string pwd ();
 void time ();
 
 
 //arg = {"cd", "nothing or name of the directory"}
 void cd (vector <string> arg) {
+    size_t max_length = 1024, k = 0;
+    char path [max_length];
     if (arg.size() == 1) {
-        arg.push_back("home");
+        arg.push_back(string(home_dir));
     }
-    cout << "*тут нужно перейти в директорию с именем : " << arg[1] << "*"<< endl;
+    for (size_t i = 1; i < arg.size(); i++) {
+        for (size_t j = 0; j < arg[i].size(); j++) {
+            path[k] = arg[i][j];
+            k++;
+        }
+    }
+    path[k] = NULL;
+
+    int ret_result = chdir (path);
+
+    if (ret_result == -1) {
+        cout << " невозможно перейти по каталогу : " << string(path) << endl;
+    }
 }
 
 
-void pwd () {
-    cout << "*тут нужно вывести полное имя текущей директории*" << endl;
+// no leacks, I've cheked
+string pwd () {
+    size_t max_length = 1024;
+    char buff [max_length];
+    getcwd (buff, max_length);
+    string cwd (buff);
+    return cwd;
 }
 
 
@@ -107,7 +127,7 @@ void execute_commands (vector <string> parsed_line) {
     if (parsed_line[0] == "cd") {
         cd(parsed_line);
     } else if (parsed_line[0] == "pwd") {
-        pwd();
+        cout << pwd() << endl;
     } else if (parsed_line[0] == "time") {
         time(parsed_line);
     } else {
@@ -117,6 +137,7 @@ void execute_commands (vector <string> parsed_line) {
 
 
 vector <string> read_and_define_commands () {
+    cout << pwd() << " > : ";
     string line;
     getline(cin, line);
     // разделяется пробелами и знаками табуляции
@@ -126,9 +147,41 @@ vector <string> read_and_define_commands () {
 }
 
 
+void my_handler(int s){
+    printf("Caught signal ctrl C %d\n",s);
+    exit(1);
+}
+
+
+// вроде все норм
+void catch_ctrl_C () {
+   struct sigaction sigIntHandler;
+
+   sigIntHandler.sa_handler = my_handler;
+   sigemptyset(&sigIntHandler.sa_mask);
+   sigIntHandler.sa_flags = 0;
+
+   sigaction(SIGINT, &sigIntHandler, NULL);
+
+   pause();
+}
+
+
+// не правильно работает, тк не выходит сразу при exit(1) а еще выводит другие строки
+void catch_ctrl_D () {
+    while (cin);
+    printf("Caught signal ctrl D \n");
+    exit(1);
+}
+
+
 // считается, что AlexShell без инициализации, поэтому нет смысла использовать argc, argv
 int main()
 {
+
+    // будем ловить ctrl D и ctrl D в отдельных потоках
+    thread thread_for_ctrl_C (catch_ctrl_C);
+    thread thread_for_ctrl_D (catch_ctrl_D);
 
     // интерпретация (считывание команд, их определение и исполнение)
     while (true) {
