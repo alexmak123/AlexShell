@@ -26,9 +26,6 @@ void time ();
 
 //arg = {"cd", "nothing or name of the directory"}
 void cd (vector <string> arg) {
-    while(true) {
-        cout << "хуй" << endl;
-    }
     size_t max_length = 1024, k = 0;
     char path [max_length];
     if (arg.size() == 1) {
@@ -52,9 +49,6 @@ void cd (vector <string> arg) {
 
 // no leacks, I've cheked
 string pwd () {
-    while(true) {
-        cout << "АСТАНАВИ!!!!!!" << endl;
-    }
     size_t max_length = 1024;
     char buff [max_length];
     getcwd (buff, max_length);
