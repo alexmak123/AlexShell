@@ -10,10 +10,12 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <thread>
+#include <csignal>
 using namespace std;
 
 
 char* home_dir = getpwuid(getuid())->pw_dir;
+bool catch_ctrl_C = false;
 
 
 // внутренние команды
@@ -24,6 +26,9 @@ void time ();
 
 //arg = {"cd", "nothing or name of the directory"}
 void cd (vector <string> arg) {
+    while(true) {
+        cout << "хуй" << endl;
+    }
     size_t max_length = 1024, k = 0;
     char path [max_length];
     if (arg.size() == 1) {
@@ -47,6 +52,9 @@ void cd (vector <string> arg) {
 
 // no leacks, I've cheked
 string pwd () {
+    while(true) {
+        cout << "АСТАНАВИ!!!!!!" << endl;
+    }
     size_t max_length = 1024;
     char buff [max_length];
     getcwd (buff, max_length);
@@ -78,7 +86,14 @@ char* convert_string_to_char_pointer (string input) {
 }
 
 
-void execute_external_commands (vector <string> parsed_line) {
+void execute_commands (vector <string> parsed_line) {
+
+    // если была введена пустая команда или сигнал
+    if (parsed_line.size() == 0) {
+        cout << "была введена пустая команда или сигнал" << endl;
+        return ;
+    }
+
     pid_t ret_pid, wpid;
     int status;
     char* cmd = convert_string_to_char_pointer (parsed_line[0]);
@@ -89,9 +104,18 @@ void execute_external_commands (vector <string> parsed_line) {
 
     ret_pid = fork();
 
+    // для ловли ctrl C
+    catch_ctrl_C = false;
+
     if (ret_pid == 0) {
         // дочерний процесс
-        if (execvp(cmd, argv) == -1) {
+        if (parsed_line[0] == "cd") {
+            cd(parsed_line);
+        } else if (parsed_line[0] == "pwd") {
+            cout << pwd() << endl;
+        } else if (parsed_line[0] == "time") {
+             time(parsed_line);
+        } else if (execvp(cmd, argv) == -1) {
             // запускаем другой процесс с переданными аргументами и делаем проверку одновременно
             perror("not correct execvp");
         }
@@ -99,9 +123,9 @@ void execute_external_commands (vector <string> parsed_line) {
         exit(1);
     } else if (ret_pid > 0) {
         // родительский процесс
-        // потомок собирается исполнить процесс, поэтому родитель должен дождаться завершения команды
+        // потомок собирается исполнить процесс, поэтому родитель должен дождаться завершения команды либо сигнала
         // процесс может либо завершиться обычным путём (успешно либо с кодом ошибки), либо быть остановлен сигналом.
-        while ((wpid = wait(&status)) > 0);
+        while (catch_ctrl_C == false || ((wpid = wait(&status)) > 0));
     } else {
         perror("ret_pid < 0");
     }
@@ -112,27 +136,6 @@ void execute_external_commands (vector <string> parsed_line) {
         free(argv[i]);
     }
     free (argv);
-}
-
-
-void execute_commands (vector <string> parsed_line) {
-
-    // если была введена пустая команда
-    if (parsed_line.size() == 0) {
-        cout << "была введена пустая команда" << endl;
-        return ;
-    }
-
-    // выполняем
-    if (parsed_line[0] == "cd") {
-        cd(parsed_line);
-    } else if (parsed_line[0] == "pwd") {
-        cout << pwd() << endl;
-    } else if (parsed_line[0] == "time") {
-        time(parsed_line);
-    } else {
-        execute_external_commands(parsed_line);
-    }
 }
 
 
@@ -147,44 +150,20 @@ vector <string> read_and_define_commands () {
 }
 
 
-void my_handler(int s){
-    printf("Caught signal ctrl C %d\n",s);
-    exit(1);
-}
-
-
-// вроде все норм
-void catch_ctrl_C () {
-   struct sigaction sigIntHandler;
-
-   sigIntHandler.sa_handler = my_handler;
-   sigemptyset(&sigIntHandler.sa_mask);
-   sigIntHandler.sa_flags = 0;
-
-   sigaction(SIGINT, &sigIntHandler, NULL);
-
-   pause();
-}
-
-
-// не правильно работает, тк не выходит сразу при exit(1) а еще выводит другие строки
-void catch_ctrl_D () {
-    while (cin);
-    printf("Caught signal ctrl D \n");
-    exit(1);
+void signalHandler(int signum) {
+   catch_ctrl_C = true;
 }
 
 
 // считается, что AlexShell без инициализации, поэтому нет смысла использовать argc, argv
-int main()
-{
+int main() {
 
-    // будем ловить ctrl D и ctrl D в отдельных потоках
-    thread thread_for_ctrl_C (catch_ctrl_C);
-    thread thread_for_ctrl_D (catch_ctrl_D);
+    // ловим ctrl C
+    signal(SIGINT, signalHandler);
 
+    // while (cin) ловит ctrl D
     // интерпретация (считывание команд, их определение и исполнение)
-    while (true) {
+    while (cin) {
         // чтение и парсинг
         vector <string> parsed_line = read_and_define_commands();
         // исполнение
