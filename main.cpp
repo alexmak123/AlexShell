@@ -3,14 +3,9 @@
 #include <string>
 #include <sstream>
 #include <iterator>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <pwd.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <thread>
-#include <csignal>
 using namespace std;
 
 
@@ -85,10 +80,25 @@ void execute_commands (vector <string> parsed_line) {
     // если была введена пустая команда или сигнал
     if (parsed_line.size() == 0) {
         cout << "была введена пустая команда или сигнал" << endl;
-        return ;
+        return;
     }
 
-    pid_t ret_pid, wpid;
+    // я не создаю новый процесс для внутренних команд
+    // внутренние команды
+    if (parsed_line[0] == "cd") {
+        cd(parsed_line);
+        return;
+    } else if (parsed_line[0] == "pwd") {
+        cout << pwd() << endl;
+        return;
+    } else if (parsed_line[0] == "time") {
+        time(parsed_line);
+        return;
+    }
+
+    // я создаю новый процесс для внешних команд и заменяю его с помощью execvp
+    // внешние команды
+    pid_t ret_pid;
     int status;
     char* cmd = convert_string_to_char_pointer (parsed_line[0]);
     char** argv = (char**) calloc (parsed_line.size() + 1, sizeof(char*));
@@ -96,6 +106,7 @@ void execute_commands (vector <string> parsed_line) {
         argv[i] = convert_string_to_char_pointer(parsed_line[i]);
     }
 
+    // создали новый процесс
     ret_pid = fork();
 
     // для ловли ctrl C
@@ -103,23 +114,22 @@ void execute_commands (vector <string> parsed_line) {
 
     if (ret_pid == 0) {
         // дочерний процесс
-        if (parsed_line[0] == "cd") {
-            cd(parsed_line);
-        } else if (parsed_line[0] == "pwd") {
-            cout << pwd() << endl;
-        } else if (parsed_line[0] == "time") {
-             time(parsed_line);
-        } else if (execvp(cmd, argv) == -1) {
+        if (execvp(cmd, argv) == -1) {
             // запускаем другой процесс с переданными аргументами и делаем проверку одновременно
             perror("not correct execvp");
         }
         // завершаем процесс, но делаем это так, что-бы AS продолжало работу
-        exit(1);
+        exit(0);
     } else if (ret_pid > 0) {
         // родительский процесс
         // потомок собирается исполнить процесс, поэтому родитель должен дождаться завершения команды либо сигнала
         // процесс может либо завершиться обычным путём (успешно либо с кодом ошибки), либо быть остановлен сигналом.
-        while (catch_ctrl_C == false || ((wpid = wait(&status)) > 0));
+        while (catch_ctrl_C == false && (waitpid(-1, &status, 0) > 0));
+
+        if (catch_ctrl_C == true) {
+            cout << "we have killed the process with Ctrl C" << endl;
+            kill(ret_pid, SIGQUIT);
+        }
     } else {
         perror("ret_pid < 0");
     }
