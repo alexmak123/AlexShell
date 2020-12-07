@@ -158,7 +158,7 @@ int main() {
         vector <string> parsed_line = read_and_define_commands();
 
         // реализация time
-        auto wct_start = high_resolution_clock::now(), wct_end = wct_start;
+        auto wct_start = high_resolution_clock::now();
         bool command_is_time = false;
         if (parsed_line.size() > 0 && parsed_line[0] == "time") {
             command_is_time = true;
@@ -170,9 +170,10 @@ int main() {
 
         // если команда была time
         if (command_is_time) {
-            wct_end = high_resolution_clock::now();
-            milliseconds d = duration_cast <milliseconds> (duration <double> (wct_start - wct_end));
-            const char* real_time = (to_string (d.count())).c_str();
+            auto wct_end = high_resolution_clock::now();
+            milliseconds d = duration_cast <milliseconds> (duration <double> (wct_end - wct_start));
+            string result = "real time : " + to_string (d.count()) + "ms";
+            const char* real_time = result.c_str();
             perror(real_time);
         }
     }
