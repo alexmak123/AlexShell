@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iterator>
 #include <sys/wait.h>
+#include <sys/times.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <ctime>
@@ -158,21 +159,31 @@ int main() {
         vector <string> parsed_line = read_and_define_commands();
 
         // реализация time
-        auto wct_start = high_resolution_clock::now();
+        auto clock_start = high_resolution_clock::now();
         bool command_is_time = false;
         if (parsed_line.size() > 0 && parsed_line[0] == "time") {
             command_is_time = true;
             parsed_line.erase(parsed_line.begin());
         }
 
+        // до execute_commands. tms_cutime и tms_cstime содержит кумулятивное user time и system time дестких процессов
+        struct tms before_the_command;
+        times(&before_the_command);
+
         // исполнение команд
         execute_commands(parsed_line);
 
+        // после execute_commands. Вычислим разницу и получим user time своей команды и system time своей команды
+        struct tms after_the_command;
+        times(&after_the_command);
+
         // если команда была time
         if (command_is_time) {
-            auto wct_end = high_resolution_clock::now();
-            milliseconds d = duration_cast <milliseconds> (duration <double> (wct_end - wct_start));
-            string result = "real time : " + to_string (d.count()) + "ms";
+            auto clock_end = high_resolution_clock::now();
+            milliseconds d = duration_cast <milliseconds> (duration <double> (clock_end - clock_start));
+            auto user_time = after_the_command.tms_cutime - before_the_command.tms_cutime;
+            auto sys_time = after_the_command.tms_cstime - before_the_command.tms_cstime;
+            string result = "real time : " + to_string (d.count()) + "ms\n" + "user time : " + to_string((long long int) user_time) + "ms\n" + "sys time : " + to_string((long long int) sys_time) + "ms\n";
             const char* real_time = result.c_str();
             perror(real_time);
         }
