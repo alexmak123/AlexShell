@@ -6,7 +6,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <ctime>
+#include <chrono>
 using namespace std;
+using namespace chrono;
 
 
 char* home_dir = getpwuid(getuid())->pw_dir;
@@ -16,7 +19,6 @@ bool catch_ctrl_C = false;
 // внутренние команды
 void cd ();
 string pwd ();
-void time ();
 
 
 //arg = {"cd", "nothing or name of the directory"}
@@ -52,19 +54,6 @@ string pwd () {
 }
 
 
-// parsed_line = {"time", "cmd", "other args for cmd"}
-void time (vector <string> parsed_line) {
-    if (parsed_line.size() < 3) {
-        perror("слишком мало аргументов для time");
-    }
-    cout << "*тут нужно вывести три времени для команды : " << parsed_line[1] << " c аргументами : ";
-    for (size_t i = 2; i < parsed_line.size(); i++) {
-        cout << parsed_line[i] << ",";
-    }
-    cout << endl;
-}
-
-
 char* convert_string_to_char_pointer (string input) {
     char* output = (char*) malloc(input.size() + 1);
     for (size_t i = 0; i < input.size(); i++) {
@@ -90,9 +79,6 @@ void execute_commands (vector <string> parsed_line) {
         return;
     } else if (parsed_line[0] == "pwd") {
         cout << pwd() << endl;
-        return;
-    } else if (parsed_line[0] == "time") {
-        time(parsed_line);
         return;
     }
 
@@ -124,7 +110,7 @@ void execute_commands (vector <string> parsed_line) {
         // родительский процесс
         // потомок собирается исполнить процесс, поэтому родитель должен дождаться завершения команды либо сигнала
         // процесс может либо завершиться обычным путём (успешно либо с кодом ошибки), либо быть остановлен сигналом.
-        while (catch_ctrl_C == false && (waitpid(-1, &status, 0) > 0));
+        while (catch_ctrl_C == false && (wait(&status) > 0));
 
         if (catch_ctrl_C == true) {
             cout << "we have killed the process with Ctrl C" << endl;
@@ -170,8 +156,25 @@ int main() {
     while (cin) {
         // чтение и парсинг
         vector <string> parsed_line = read_and_define_commands();
-        // исполнение
+
+        // реализация time
+        auto wct_start = high_resolution_clock::now(), wct_end = wct_start;
+        bool command_is_time = false;
+        if (parsed_line.size() > 0 && parsed_line[0] == "time") {
+            command_is_time = true;
+            parsed_line.erase(parsed_line.begin());
+        }
+
+        // исполнение команд
         execute_commands(parsed_line);
+
+        // если команда была time
+        if (command_is_time) {
+            wct_end = high_resolution_clock::now();
+            milliseconds d = duration_cast <milliseconds> (duration <double> (wct_start - wct_end));
+            const char* real_time = (to_string (d.count())).c_str();
+            perror(real_time);
+        }
     }
 
     return 0;
