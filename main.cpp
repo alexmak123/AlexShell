@@ -9,6 +9,8 @@
 #include <pwd.h>
 #include <ctime>
 #include <chrono>
+#include <unistd.h>
+#include <fstream>
 using namespace std;
 using namespace chrono;
 
@@ -158,6 +160,19 @@ int main() {
         // чтение и парсинг
         vector <string> parsed_line = read_and_define_commands();
 
+        // реализация метасимвола > для предпоследнего элемента
+        bool reassining_input = false;
+        stringstream buffer;
+        streambuf * old;
+        string name_of_file_for_input, save_input;
+        if (parsed_line.size() > 2 && parsed_line[parsed_line.size()-2] == ">") {
+            reassining_input = true;
+            name_of_file_for_input = parsed_line[parsed_line.size()-1];
+            parsed_line.erase(parsed_line.end() - 2, parsed_line.end() - 1);
+            old = cin.rdbuf(buffer.rdbuf());
+            save_input = buffer.str();
+        }
+
         // реализация time
         auto clock_start = high_resolution_clock::now();
         bool command_is_time = false;
@@ -186,6 +201,18 @@ int main() {
             string result = "real time : " + to_string (d.count()) + "ms\n" + "user time : " + to_string((long long int) user_time) + "ms\n" + "sys time : " + to_string((long long int) sys_time) + "ms\n";
             const char* real_time = result.c_str();
             perror(real_time);
+        }
+
+        // если был метасимвол >
+        if (reassining_input == true) {
+
+            ofstream f_out;
+            f_out.open(name_of_file_for_input, ios::trunc);
+            if (f_out.is_open() == false) {
+                perror("неправильный open");
+            }
+            f_out << save_input;
+            f_out.close();
         }
     }
 
