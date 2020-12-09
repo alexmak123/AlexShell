@@ -206,7 +206,7 @@ int main() {
         if (reassining_input == true) {
 
             ofstream f_out;
-            f_out.open(name_of_file_for_input, ios::trunc);
+            f_out.open(name_of_file_for_input);
             if (f_out.is_open() == false) {
                 perror("неправильный open");
             }
