@@ -169,7 +169,7 @@ int main() {
             reassining_input = true;
             name_of_file_for_input = parsed_line[parsed_line.size()-1];
             parsed_line.erase(parsed_line.end() - 2, parsed_line.end() - 1);
-            old = cin.rdbuf(buffer.rdbuf());
+            old = cout.rdbuf(buffer.rdbuf());
         }
 
         // реализация time
