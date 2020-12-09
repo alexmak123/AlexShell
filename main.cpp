@@ -164,13 +164,12 @@ int main() {
         bool reassining_input = false;
         stringstream buffer;
         streambuf * old;
-        string name_of_file_for_input, save_input;
+        string name_of_file_for_input;
         if (parsed_line.size() > 2 && parsed_line[parsed_line.size()-2] == ">") {
             reassining_input = true;
             name_of_file_for_input = parsed_line[parsed_line.size()-1];
             parsed_line.erase(parsed_line.end() - 2, parsed_line.end() - 1);
             old = cin.rdbuf(buffer.rdbuf());
-            save_input = buffer.str();
         }
 
         // реализация time
@@ -211,7 +210,7 @@ int main() {
             if (f_out.is_open() == false) {
                 perror("неправильный open");
             }
-            f_out << save_input;
+            f_out << buffer.str();
             f_out.close();
         }
     }
