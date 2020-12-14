@@ -219,8 +219,10 @@ void fifo_close_and_free(int* fifo) {
 
 
 vector<vector<string>> read_conveyor_components() {
-     string line;
-     getline(cin, line);
+    string line;
+    if (!getline(cin, line)) {
+        exit(0);
+    }
     // разделяется пробелами и знаками табуляции
     istringstream input_stream (line);
     vector <string> tokens {istream_iterator<string>{input_stream}, istream_iterator<string>{},{    }};
@@ -338,7 +340,6 @@ int main() {
     // ловим ctrl C
     signal(SIGINT, signalHandler);
 
-    // while (cin) ловит ctrl D
     // интерпретация (считывание команд, их определение и исполнение)
     while (cin) {
         // обновляем
