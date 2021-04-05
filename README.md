@@ -1,2 +1,2 @@
-# GAyShell
-Shell for Linux made by Gleb and Alex
+# AlexShell
+Shell for Linux made by Alex
