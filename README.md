@@ -1,2 +1,2 @@
 # AlexShell
-Shell for Linux made by Alex
+Shell for Linux 
